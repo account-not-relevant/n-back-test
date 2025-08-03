@@ -1,0 +1,1038 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dual N-Back Trainer</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&display=swap" rel="stylesheet">
+    <style>
+        /*
+            Dual N-Back Trainer Stylesheet
+            - Features a space-themed animated background.
+            - Layout is fully responsive and centered.
+            - Interactive elements have clear visual feedback (hover, active states).
+        */
+        :root {
+            --bg-color: #1a1a1a;
+            --container-bg: #2c2c2c;
+            --grid-cell-bg: #444444;
+            --grid-cell-highlight: #4a90e2;
+            --grid-cell-hover: #5a5a5a;
+            --text-color: #f0f0f0;
+            --primary-btn-bg: #4a90e2;
+            --primary-btn-hover: #5aa1f2;
+            --secondary-btn-bg: #6c757d;
+            --secondary-btn-hover: #868e96;
+            --correct-feedback: #28a745;
+            --incorrect-feedback: #dc3545;
+            --font-family: 'Inter', sans-serif;
+        }
+
+        body {
+            font-family: var(--font-family);
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            padding: 2rem 1rem; /* Added more padding for spacing */
+            box-sizing: border-box;
+            overflow-y: auto; /* Allow vertical scrolling */
+        }
+        
+        #bg-canvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -1;
+        }
+
+        .main-container {
+            position: relative;
+            z-index: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 2rem;
+            width: 100%;
+            max-width: 900px;
+            padding-top: 20px; /* Add space for the settings panel */
+        }
+
+        .settings-panel {
+            position: absolute;
+            top: 0;
+            right: 0;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 0.9rem;
+        }
+        
+        /* The switch - the box around the slider */
+        .switch {
+          position: relative;
+          display: inline-block;
+          width: 50px;
+          height: 28px;
+        }
+
+        /* Hide default HTML checkbox */
+        .switch input {
+          opacity: 0;
+          width: 0;
+          height: 0;
+        }
+
+        /* The slider */
+        .slider {
+          position: absolute;
+          cursor: pointer;
+          top: 0;
+          left: 0;
+          right: 0;
+          bottom: 0;
+          background-color: #ccc;
+          transition: .4s;
+        }
+
+        .slider:before {
+          position: absolute;
+          content: "";
+          height: 20px;
+          width: 20px;
+          left: 4px;
+          bottom: 4px;
+          background-color: white;
+          transition: .4s;
+        }
+
+        input:checked + .slider {
+          background-color: var(--primary-btn-bg);
+        }
+
+        input:focus + .slider {
+          box-shadow: 0 0 1px var(--primary-btn-bg);
+        }
+
+        input:checked + .slider:before {
+          transform: translateX(22px);
+        }
+
+        /* Rounded sliders */
+        .slider.round {
+          border-radius: 28px;
+        }
+
+        .slider.round:before {
+          border-radius: 50%;
+        }
+
+        .game-area {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 1.5rem;
+            width: 100%;
+        }
+        
+        .info-panels {
+            display: flex;
+            justify-content: space-around;
+            width: 100%;
+            flex-wrap: wrap;
+            gap: 1rem;
+            text-align: center;
+        }
+
+        .panel {
+            background-color: var(--container-bg);
+            padding: 1rem 1.5rem;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+            min-width: 150px;
+        }
+
+        .panel h2 {
+            margin: 0 0 0.5rem 0;
+            font-size: 1rem;
+            font-weight: 500;
+            color: #b0b0b0;
+        }
+
+        .panel p {
+            margin: 0;
+            font-size: 2rem;
+            font-weight: 700;
+        }
+        
+        .n-level-control {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 1rem;
+        }
+
+        .n-level-control p {
+            width: 50px;
+            text-align: center;
+        }
+
+        .n-btn {
+            background-color: var(--grid-cell-bg);
+            color: var(--text-color);
+            border: 1px solid var(--grid-cell-hover);
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            font-size: 1.5rem;
+            font-weight: bold;
+            cursor: pointer;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            line-height: 1;
+            transition: background-color 0.2s;
+            user-select: none;
+        }
+
+        .n-btn:hover {
+            background-color: var(--grid-cell-hover);
+        }
+
+        .n-btn:disabled {
+            background-color: #333;
+            color: #666;
+            cursor: not-allowed;
+            border-color: #444;
+        }
+
+        #trial-count {
+            font-size: 1.5rem;
+        }
+        
+        .grid-wrapper {
+            position: relative;
+            width: 100%;
+            max-width: 400px;
+            aspect-ratio: 1 / 1;
+        }
+
+        .grid-container {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            grid-template-rows: repeat(3, 1fr);
+            gap: 10px;
+            width: 100%;
+            height: 100%;
+        }
+
+        .grid-cell {
+            background-color: var(--grid-cell-bg);
+            border-radius: 10px;
+            transition: background-color 0.1s ease-in-out;
+        }
+        
+        .grid-cell:hover {
+            background-color: var(--grid-cell-hover);
+        }
+
+        .grid-cell.highlight {
+            background-color: var(--grid-cell-highlight);
+        }
+        
+        .grid-cell.starting {
+             background-color: var(--grid-cell-highlight) !important;
+        }
+
+        .grid-cell.feedback-correct {
+            background-color: var(--correct-feedback) !important;
+        }
+        
+        .grid-cell.feedback-incorrect {
+            background-color: var(--incorrect-feedback) !important;
+        }
+        
+        .animation-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(26, 26, 26, 0.9);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            color: white;
+            font-size: 2rem;
+            font-weight: bold;
+            z-index: 10;
+            visibility: hidden;
+            opacity: 0;
+            transition: opacity 0.3s, visibility 0.3s;
+            border-radius: 10px;
+            pointer-events: none;
+        }
+
+        .animation-overlay.visible {
+            visibility: visible;
+            opacity: 1;
+        }
+
+        .controls {
+            display: flex;
+            gap: 1rem;
+            align-items: center;
+        }
+
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: 500;
+            color: white;
+            cursor: pointer;
+            transition: background-color 0.2s ease, transform 0.1s ease;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+        }
+
+        .btn:active {
+            transform: translateY(0);
+        }
+
+        #start-btn {
+            background-color: var(--primary-btn-bg);
+        }
+        #start-btn:hover {
+            background-color: var(--primary-btn-hover);
+        }
+
+        #reset-btn {
+            background-color: var(--secondary-btn-bg);
+        }
+        #reset-btn:hover {
+            background-color: var(--secondary-btn-hover);
+        }
+
+        .score-board {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+            width: 100%;
+            max-width: 400px;
+            background-color: var(--container-bg);
+            padding: 1.5rem;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+        }
+
+        .score-board h3 {
+            text-align: center;
+            margin: 0 0 1rem 0;
+            font-weight: 500;
+        }
+
+        .score-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 1rem;
+            text-align: center;
+        }
+
+        .score-item p {
+            margin: 0;
+            font-size: 1.5rem;
+            font-weight: 700;
+        }
+        .score-item span {
+            font-size: 0.9rem;
+            color: #b0b0b0;
+        }
+
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.7);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            visibility: hidden;
+            opacity: 0;
+            transition: visibility 0s 0.3s, opacity 0.3s;
+            z-index: 1000;
+        }
+
+        .modal-overlay.visible {
+            visibility: visible;
+            opacity: 1;
+            transition: visibility 0s, opacity 0.3s;
+        }
+
+        .modal-content {
+            background-color: var(--container-bg);
+            padding: 2rem;
+            border-radius: 12px;
+            text-align: center;
+            transform: scale(0.9);
+            transition: transform 0.3s;
+        }
+
+        .modal-overlay.visible .modal-content {
+            transform: scale(1);
+        }
+
+        .modal-content h2 {
+            margin-top: 0;
+        }
+
+        .modal-content p {
+            font-size: 1.2rem;
+            margin-bottom: 2rem;
+        }
+
+        .modal-buttons {
+            display: flex;
+            gap: 1rem;
+            justify-content: center;
+        }
+        
+        .instructions {
+            background-color: var(--container-bg);
+            padding: 1rem 1.5rem;
+            border-radius: 12px;
+            max-width: 600px;
+            text-align: center;
+            font-size: 0.9rem;
+            line-height: 1.5;
+        }
+
+.intro-header, .intro-paragraph { 
+    margin: 0;
+}
+
+    </style>
+</head>
+<body>
+    <canvas id="bg-canvas"></canvas>
+    <!--
+        Dual N-Back Training Application
+        Purpose: A cognitive training game to improve working memory and fluid intelligence.
+        Usage:
+        - Use the +/- buttons to select your starting N-Level.
+        - Click "Start" to begin a session.
+        - A square will light up on the grid, and a letter sound will play simultaneously.
+        - Press 'A' if the square's position is the same as N trials ago.
+        - Press 'P' if the spoken letter is the same as N trials ago.
+        - The N-level increases or decreases based on your accuracy after each block of 20 trials.
+    -->
+    <div class="main-container">
+        <h1 class="intro-header">Basic N-Back Test game.</h1>
+        <p class="intro-paragraph">You probably already know how this works. </p>
+        <div class="settings-panel">
+            <span>Animated BG</span>
+            <label class="switch">
+                <input type="checkbox" id="bg-toggle" checked>
+                <span class="slider round"></span>
+            </label>
+        </div>
+        
+        <div class="info-panels">
+            <div class="panel">
+                <h2>N-Level</h2>
+                <div class="n-level-control">
+                    <button id="n-level-down" class="n-btn">-</button>
+                    <p id="n-level">1</p>
+                    <button id="n-level-up" class="n-btn">+</button>
+                </div>
+            </div>
+            <div class="panel">
+                <h2>Trial</h2>
+                <p id="trial-count">0/20</p>
+            </div>
+            <div class="panel">
+                <h2>Best N</h2>
+                <p id="best-n">1</p>
+            </div>
+            <div class="panel">
+                <h2>Best Acc.</h2>
+                <p id="best-acc">0%</p>
+            </div>
+        </div>
+
+        <div class="game-area">
+            <div class="grid-wrapper">
+                <div class="grid-container">
+                    <div class="grid-cell" id="cell-0"></div>
+                    <div class="grid-cell" id="cell-1"></div>
+                    <div class="grid-cell" id="cell-2"></div>
+                    <div class="grid-cell" id="cell-3"></div>
+                    <div class="grid-cell" id="cell-4"></div>
+                    <div class="grid-cell" id="cell-5"></div>
+                    <div class="grid-cell" id="cell-6"></div>
+                    <div class="grid-cell" id="cell-7"></div>
+                    <div class="grid-cell" id="cell-8"></div>
+                </div>
+                <div class="animation-overlay" id="animation-overlay">
+                    <h2 id="animation-text"></h2>
+                </div>
+            </div>
+
+            <div class="controls">
+                <button id="start-btn" class="btn">Start</button>
+                <button id="reset-btn" class="btn">Reset Progress</button>
+            </div>
+        </div>
+
+        <div class="score-board">
+            <h3>Current Block Score</h3>
+            <div class="score-grid">
+                <div class="score-item">
+                    <p id="hits">0</p>
+                    <span>Hits</span>
+                </div>
+                <div class="score-item">
+                    <p id="misses">0</p>
+                    <span>Misses</span>
+                </div>
+                <div class="score-item">
+                    <p id="false-alarms">0</p>
+                    <span>False Alarms</span>
+                </div>
+                <div class="score-item">
+                    <p id="accuracy">0%</p>
+                    <span>Accuracy</span>
+                </div>
+            </div>
+        </div>
+        
+        <div class="instructions">
+            <p>Press <strong>A</strong> for a VISUAL match. Press <strong>P</strong> for an AUDITORY match.</p>
+        </div>
+
+    </div>
+
+    <div class="modal-overlay" id="modal">
+        <div class="modal-content">
+            <h2 id="modal-title">Block Complete</h2>
+            <p id="modal-accuracy">Your accuracy was 0%.</p>
+            <div class="modal-buttons">
+                <button id="next-block-btn" class="btn">Next Block</button>
+                <button id="end-session-btn" class="btn">End Session</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            // --- DOM Element References ---
+            const gridCells = document.querySelectorAll('.grid-cell');
+            const startBtn = document.getElementById('start-btn');
+            const resetBtn = document.getElementById('reset-btn');
+            const nLevelDisplay = document.getElementById('n-level');
+            const nLevelUpBtn = document.getElementById('n-level-up');
+            const nLevelDownBtn = document.getElementById('n-level-down');
+            const trialCountDisplay = document.getElementById('trial-count');
+            const hitsDisplay = document.getElementById('hits');
+            const missesDisplay = document.getElementById('misses');
+            const falseAlarmsDisplay = document.getElementById('false-alarms');
+            const accuracyDisplay = document.getElementById('accuracy');
+            const bestNDisplay = document.getElementById('best-n');
+            const bestAccDisplay = document.getElementById('best-acc');
+            const modal = document.getElementById('modal');
+            const modalAccuracyDisplay = document.getElementById('modal-accuracy');
+            const nextBlockBtn = document.getElementById('next-block-btn');
+            const endSessionBtn = document.getElementById('end-session-btn');
+            const animationOverlay = document.getElementById('animation-overlay');
+            const animationText = document.getElementById('animation-text');
+            const bgToggle = document.getElementById('bg-toggle');
+            const bgCanvas = document.getElementById('bg-canvas');
+
+            // --- Game State Variables ---
+            let nLevel = 1;
+            let trialCount = 0;
+            const trialsPerBlock = 20;
+            let visualStimuliHistory = [];
+            let auditoryStimuliHistory = [];
+            let isGameRunning = false;
+            let trialTimeout;
+            let userRespondedVisual = false;
+            let userRespondedAuditory = false;
+            
+            // --- Scoring Variables ---
+            let hits = 0;
+            let misses = 0;
+            let falseAlarms = 0;
+            
+            // --- Web Audio API Setup ---
+            let audioContext;
+            const letters = ['C', 'G', 'H', 'K', 'L', 'Q', 'R', 'T'];
+            let speechSynth = window.speechSynthesis;
+
+            // --- Canvas Animation Variables ---
+            let canvasCtx;
+            let stars = [];
+            let shootingStars = [];
+            let animationFrameId;
+
+            /**
+             * Initializes the Web Audio API context.
+             * This must be done in response to a user action (e.g., a click).
+             */
+            function initAudio() {
+                if (!audioContext) {
+                    try {
+                        audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                        speechSynth = window.speechSynthesis;
+                        // A small trick to "warm up" the speech synthesis engine on some browsers.
+                        const warmUpUtterance = new SpeechSynthesisUtterance('');
+                        speechSynth.speak(warmUpUtterance);
+
+                    } catch (e) {
+                        console.error("Web Audio API is not supported in this browser.");
+                        alert("Your browser does not support the Web Audio API, which is required for auditory stimuli.");
+                    }
+                }
+            }
+
+            /**
+             * Loads and displays saved progress from localStorage.
+             */
+            function loadProgress() {
+                const savedN = localStorage.getItem('nBackBestN');
+                const savedAcc = localStorage.getItem('nBackBestAcc');
+                if (savedN) {
+                    bestNDisplay.textContent = savedN;
+                }
+                if (savedAcc) {
+                    bestAccDisplay.textContent = `${savedAcc}%`;
+                }
+            }
+            
+            /**
+             * Resets the game state and clears saved progress from localStorage.
+             */
+            function resetProgress() {
+                if (confirm("Are you sure you want to reset all your progress?")) {
+                    localStorage.removeItem('nBackBestN');
+                    localStorage.removeItem('nBackBestAcc');
+                    bestNDisplay.textContent = '1';
+                    bestAccDisplay.textContent = '0%';
+                    resetGame();
+                }
+            }
+
+            /**
+             * Resets the game to its initial state for a new session.
+             */
+            function resetGame() {
+                isGameRunning = false;
+                clearTimeout(trialTimeout);
+                nLevel = 1;
+                resetBlock();
+                updateDisplays();
+                startBtn.disabled = false;
+                startBtn.textContent = "Start";
+                nLevelUpBtn.disabled = false;
+                nLevelDownBtn.disabled = false;
+            }
+
+            /**
+             * Resets the state for a new block of trials.
+             */
+            function resetBlock() {
+                trialCount = 0;
+                hits = 0;
+                misses = 0;
+                falseAlarms = 0;
+                visualStimuliHistory = [];
+                auditoryStimuliHistory = [];
+            }
+
+            /**
+             * Updates all UI display elements with the current game state.
+             */
+            function updateDisplays() {
+                nLevelDisplay.textContent = nLevel;
+                trialCountDisplay.textContent = `${trialCount}/${trialsPerBlock}`;
+                hitsDisplay.textContent = hits;
+                missesDisplay.textContent = misses;
+                falseAlarmsDisplay.textContent = falseAlarms;
+                
+                const totalMatches = hits + misses;
+                const accuracy = totalMatches > 0 ? Math.round((hits / totalMatches) * 100) : 0;
+                accuracyDisplay.textContent = `${accuracy}%`;
+            }
+            
+            /**
+             * Displays a starting animation before a block begins.
+             * @param {function} callback - The function to execute after the animation.
+             */
+            function showStartingAnimation(callback) {
+                animationText.textContent = "Get Ready!";
+                animationOverlay.classList.add('visible');
+                gridCells.forEach(cell => cell.classList.add('starting'));
+
+                setTimeout(() => {
+                    animationOverlay.classList.remove('visible');
+                    gridCells.forEach(cell => cell.classList.remove('starting'));
+                    callback(); // This will be runTrial
+                }, 2500);
+            }
+
+
+            /**
+             * Starts the game session. Initializes audio and begins the first trial.
+             */
+            function startGame() {
+                if (isGameRunning) return;
+                initAudio();
+                isGameRunning = true;
+                startBtn.disabled = true;
+                nLevelUpBtn.disabled = true;
+                nLevelDownBtn.disabled = true;
+                startBtn.textContent = "Running...";
+                resetBlock();
+                updateDisplays();
+                showStartingAnimation(runTrial);
+            }
+
+            /**
+             * Executes a single trial, presenting visual and auditory stimuli.
+             */
+            function runTrial() {
+                if (!isGameRunning) return; // Stop if game ended during animation
+                if (trialCount >= trialsPerBlock) {
+                    endBlock();
+                    return;
+                }
+
+                trialCount++;
+                userRespondedVisual = false;
+                userRespondedAuditory = false;
+                
+                // --- Generate Stimuli ---
+                const visualStimulus = Math.floor(Math.random() * 9);
+                const auditoryStimulus = letters[Math.floor(Math.random() * letters.length)];
+
+                visualStimuliHistory.push(visualStimulus);
+                auditoryStimuliHistory.push(auditoryStimulus);
+
+                // --- Display Stimuli ---
+                const cell = gridCells[visualStimulus];
+                cell.classList.add('highlight');
+                
+                // Play auditory stimulus
+                if (speechSynth && audioContext.state === 'running') {
+                    const utterance = new SpeechSynthesisUtterance(auditoryStimulus);
+                    utterance.rate = 1.5;
+                    speechSynth.speak(utterance);
+                }
+
+                // Remove highlight after 800ms
+                setTimeout(() => {
+                    cell.classList.remove('highlight');
+                }, 800);
+
+                updateDisplays();
+
+                // Schedule the next trial
+                trialTimeout = setTimeout(runTrial, 2000);
+            }
+            
+            /**
+             * Provides visual feedback on a grid cell.
+             * @param {number} cellIndex - The index of the cell to flash.
+             * @param {boolean} isCorrect - Determines if the feedback is for a correct or incorrect response.
+             */
+            function showFeedback(cellIndex, isCorrect) {
+                const cell = gridCells[cellIndex];
+                const feedbackClass = isCorrect ? 'feedback-correct' : 'feedback-incorrect';
+                cell.classList.add(feedbackClass);
+                setTimeout(() => cell.classList.remove(feedbackClass), 300);
+            }
+
+            /**
+             * Handles all key presses during the game.
+             * @param {KeyboardEvent} e - The keyboard event object.
+             */
+            function handleKeyPress(e) {
+                if (!isGameRunning || trialCount === 0) return;
+
+                const key = e.key.toLowerCase();
+                let isMatch = false;
+                let isCorrect = false;
+
+                // --- Visual Match Logic ('a' key) ---
+                if (key === 'a' && !userRespondedVisual) {
+                    userRespondedVisual = true;
+                    if (trialCount > nLevel) {
+                        const currentVisual = visualStimuliHistory[visualStimuliHistory.length - 1];
+                        const nBackVisual = visualStimuliHistory[visualStimuliHistory.length - 1 - nLevel];
+                        isMatch = (currentVisual === nBackVisual);
+                        
+                        if (isMatch) {
+                            hits++;
+                            isCorrect = true;
+                        } else {
+                            falseAlarms++;
+                            isCorrect = false;
+                        }
+                        showFeedback(currentVisual, isCorrect);
+                    } else {
+                        falseAlarms++; // Response when no match is possible
+                        isCorrect = false;
+                        showFeedback(visualStimuliHistory[visualStimuliHistory.length - 1], isCorrect);
+                    }
+                }
+
+                // --- Auditory Match Logic ('p' key) ---
+                if (key === 'p' && !userRespondedAuditory) {
+                    userRespondedAuditory = true;
+                     if (trialCount > nLevel) {
+                        const currentAuditory = auditoryStimuliHistory[auditoryStimuliHistory.length - 1];
+                        const nBackAuditory = auditoryStimuliHistory[auditoryStimuliHistory.length - 1 - nLevel];
+                        isMatch = (currentAuditory === nBackAuditory);
+                        
+                        if (isMatch) {
+                            hits++;
+                            isCorrect = true;
+                        } else {
+                            falseAlarms++;
+                            isCorrect = false;
+                        }
+                        // Visual feedback for auditory response is shown on the current cell
+                        showFeedback(visualStimuliHistory[visualStimuliHistory.length - 1], isCorrect);
+                    } else {
+                         falseAlarms++;
+                         isCorrect = false;
+                         showFeedback(visualStimuliHistory[visualStimuliHistory.length - 1], isCorrect);
+                    }
+                }
+                
+                updateDisplays();
+            }
+            
+            /**
+             * Calculates misses for the block. This should be called before adjusting N-level.
+             */
+            function calculateMisses() {
+                let actualMatches = 0;
+                // We only check from the N+1 trial onwards
+                for (let i = nLevel; i < trialsPerBlock; i++) {
+                    // Check for visual match
+                    if (visualStimuliHistory[i] === visualStimuliHistory[i - nLevel]) {
+                        actualMatches++;
+                    }
+                    // Check for auditory match
+                    if (auditoryStimuliHistory[i] === auditoryStimuliHistory[i - nLevel]) {
+                        actualMatches++;
+                    }
+                }
+                misses = actualMatches - hits;
+                if (misses < 0) misses = 0; // Hits can't exceed actual matches
+            }
+
+
+            /**
+             * Concludes a block of trials, calculates accuracy, and shows the summary modal.
+             */
+            function endBlock() {
+                isGameRunning = false;
+                clearTimeout(trialTimeout);
+                startBtn.textContent = "Start"; // Reset button text for next session
+                
+                calculateMisses();
+                updateDisplays(); // Final update with misses calculated
+
+                const totalOpportunities = hits + misses;
+                const finalAccuracy = totalOpportunities > 0 ? Math.round((hits / totalOpportunities) * 100) : 100; // 100% if no matches occurred
+                
+                // --- Update Best Score ---
+                const bestN = parseInt(localStorage.getItem('nBackBestN') || '1');
+                const bestAcc = parseInt(localStorage.getItem('nBackBestAcc') || '0');
+
+                if (nLevel > bestN) {
+                    localStorage.setItem('nBackBestN', nLevel);
+                    localStorage.setItem('nBackBestAcc', finalAccuracy);
+                } else if (nLevel === bestN && finalAccuracy > bestAcc) {
+                    localStorage.setItem('nBackBestAcc', finalAccuracy);
+                }
+                loadProgress();
+
+                // --- Adjust N-Level for next block ---
+                const previousNLevel = nLevel;
+                if (finalAccuracy >= 80) {
+                    nLevel++;
+                } else if (finalAccuracy <= 60 && nLevel > 1) {
+                    nLevel--;
+                }
+                
+                // --- Show Modal ---
+                let modalMessage = `Your accuracy was ${finalAccuracy}%.`;
+                if (nLevel > previousNLevel) {
+                    modalMessage += ` N-Level increased to ${nLevel}!`;
+                } else if (nLevel < previousNLevel) {
+                    modalMessage += ` N-Level decreased to ${nLevel}.`;
+                }
+
+                modalAccuracyDisplay.textContent = modalMessage;
+                modal.classList.add('visible');
+            }
+            
+            /**
+             * Starts the next block of trials.
+             */
+            function startNextBlock() {
+                modal.classList.remove('visible');
+                resetBlock();
+                isGameRunning = true;
+                startBtn.disabled = true;
+                nLevelUpBtn.disabled = true;
+                nLevelDownBtn.disabled = true;
+                startBtn.textContent = "Running...";
+                updateDisplays();
+                showStartingAnimation(runTrial);
+            }
+
+            /**
+             * Ends the current session and resets the game UI.
+             */
+            function endCurrentSession() {
+                modal.classList.remove('visible');
+                resetGame();
+            }
+
+            // --- Canvas Animation Functions ---
+            
+            /**
+             * Sets up the canvas and creates the initial stars.
+             */
+            function setupCanvas() {
+                canvasCtx = bgCanvas.getContext('2d');
+                bgCanvas.width = window.innerWidth;
+                bgCanvas.height = window.innerHeight;
+                
+                stars = [];
+                let numStars = (bgCanvas.width * bgCanvas.height) / 9000;
+                for (let i = 0; i < numStars; i++) {
+                    stars.push({
+                        x: Math.random() * bgCanvas.width,
+                        y: Math.random() * bgCanvas.height,
+                        radius: Math.random() * 1.2,
+                        alpha: Math.random() * 0.5 + 0.5, // initial alpha
+                        alphaChange: (Math.random() * 0.02) - 0.01 // how much alpha changes per frame
+                    });
+                }
+            }
+
+            /**
+             * The main animation loop for the background.
+             */
+            function animateBackground() {
+                canvasCtx.clearRect(0, 0, bgCanvas.width, bgCanvas.height);
+                
+                // Draw twinkling stars
+                stars.forEach(star => {
+                    star.alpha += star.alphaChange;
+                    if (star.alpha <= 0.2 || star.alpha >= 1) {
+                        star.alphaChange *= -1;
+                    }
+                    
+                    canvasCtx.beginPath();
+                    canvasCtx.arc(star.x, star.y, star.radius, 0, Math.PI * 2);
+                    canvasCtx.fillStyle = `rgba(255, 255, 255, ${star.alpha})`;
+                    canvasCtx.fill();
+                });
+                
+                // Create and draw shooting stars
+                if (Math.random() < 0.002) { // Probability of a new shooting star
+                    shootingStars.push({
+                        x: Math.random() * bgCanvas.width,
+                        y: Math.random() * 100,
+                        len: Math.random() * 80 + 10,
+                        speed: Math.random() * 5 + 3,
+                        alpha: 1,
+                    });
+                }
+                
+                shootingStars.forEach((ss, index) => {
+                    ss.x += ss.speed;
+                    ss.y += ss.speed / 2;
+                    ss.alpha -= 0.02;
+
+                    if (ss.alpha <= 0) {
+                        shootingStars.splice(index, 1);
+                    } else {
+                        canvasCtx.beginPath();
+                        canvasCtx.moveTo(ss.x, ss.y);
+                        canvasCtx.lineTo(ss.x - ss.len, ss.y - ss.len/2);
+                        canvasCtx.strokeStyle = `rgba(255, 255, 255, ${ss.alpha})`;
+                        canvasCtx.lineWidth = 2;
+                        canvasCtx.stroke();
+                    }
+                });
+
+                animationFrameId = requestAnimationFrame(animateBackground);
+            }
+            
+            function handleBgToggle() {
+                if (bgToggle.checked) {
+                    bgCanvas.style.display = 'block';
+                    document.body.style.backgroundColor = 'var(--bg-color)'; // Ensure body is dark
+                    if (animationFrameId) cancelAnimationFrame(animationFrameId);
+                    setupCanvas();
+                    animateBackground();
+                } else {
+                    if (animationFrameId) cancelAnimationFrame(animationFrameId);
+                    bgCanvas.style.display = 'none';
+                    document.body.style.backgroundColor = 'var(--bg-color)';
+                }
+            }
+
+
+            // --- Event Listeners ---
+            startBtn.addEventListener('click', startGame);
+            resetBtn.addEventListener('click', resetProgress);
+            document.addEventListener('keydown', handleKeyPress);
+            nextBlockBtn.addEventListener('click', startNextBlock);
+            endSessionBtn.addEventListener('click', endCurrentSession);
+            bgToggle.addEventListener('change', handleBgToggle);
+            window.addEventListener('resize', () => {
+                if (bgToggle.checked) {
+                    setupCanvas();
+                }
+            });
+
+            nLevelUpBtn.addEventListener('click', () => {
+                if (!isGameRunning) {
+                    nLevel++;
+                    updateDisplays();
+                }
+            });
+
+            nLevelDownBtn.addEventListener('click', () => {
+                if (!isGameRunning && nLevel > 1) {
+                    nLevel--;
+                    updateDisplays();
+                }
+            });
+
+            // --- Initial Load ---
+            loadProgress();
+            updateDisplays();
+            handleBgToggle(); // Initialize background based on default toggle state
+        });
+    </script>
+</body>
+</html>
